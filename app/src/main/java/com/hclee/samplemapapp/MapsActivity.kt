@@ -1,27 +1,27 @@
 package com.hclee.samplemapapp
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import android.location.Location
+import android.location.LocationManager
 import android.os.Bundle
+import android.os.Looper
+import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import com.google.android.gms.location.FusedLocationProviderClient
-import com.google.android.gms.location.LocationRequest
-import com.google.android.gms.location.LocationServices
-import com.google.android.gms.location.LocationSettingsRequest
-import com.google.android.gms.maps.CameraUpdateFactory
-import com.google.android.gms.maps.GoogleMap
-import com.google.android.gms.maps.OnMapReadyCallback
-import com.google.android.gms.maps.SupportMapFragment
+import com.google.android.gms.location.*
+import com.google.android.gms.maps.*
 import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
 
 class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
     companion object {
 
+        private const val TAG = "MapsActivity"
         private val REQUIRED_PERMISSIONS = arrayOf(
                 Manifest.permission.ACCESS_FINE_LOCATION,
                 Manifest.permission.ACCESS_COARSE_LOCATION
@@ -35,6 +35,46 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var locationRequest: LocationRequest
     private lateinit var location: Location
+    private lateinit var currentLocation: Location
+    private lateinit var currentPosition: LatLng
+    private var currentMarker: Marker? = null
+    private val locationCallback = object : LocationCallback() {
+        override fun onLocationResult(locationResult: LocationResult) {
+            super.onLocationResult(locationResult)
+
+            val locationList = locationResult.locations
+
+            if (locationList.isNotEmpty()) {
+                location = locationList.last()
+                currentPosition = LatLng(location.latitude, location.longitude)
+
+                val markerTitle = "current position marker title"
+                val markerSnippet = "current position marker snippet"
+
+                setCurrentLocation(location, markerTitle, markerSnippet)
+            }
+        }
+
+        override fun onLocationAvailability(p0: LocationAvailability) {
+            super.onLocationAvailability(p0)
+        }
+    }
+
+    private fun setCurrentLocation(location: Location, markerTitle: String, markerSnippet: String) {
+        val currentLatLng = LatLng(location.latitude, location.longitude)
+        val markerOptions = MarkerOptions().apply {
+            position(currentLatLng)
+            title(markerTitle)
+            snippet(markerSnippet)
+            draggable(true)
+        }
+        val cameraUpdate = CameraUpdateFactory.newLatLng(currentLatLng)
+
+        currentLocation = location
+        currentMarker = googleMap.addMarker(markerOptions)
+
+        googleMap.moveCamera(cameraUpdate)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -65,9 +105,36 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         if (deniedPermissions.isNotEmpty()) {
             ActivityCompat.requestPermissions(this, deniedPermissions, REQUEST_CODE_PERMISSIONS)
         } else {
-
+            startLocationUpdates()
         }
     }
+
+    @SuppressLint("MissingPermission")
+    private fun startLocationUpdates() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+            != PackageManager.PERMISSION_GRANTED
+            || ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            Log.d(TAG, "permission not granted")
+        }
+
+        fusedLocationClient.requestLocationUpdates(
+            locationRequest,
+            locationCallback,
+            Looper.myLooper()
+        )
+
+        googleMap.isMyLocationEnabled = true
+    }
+
+    private fun checkLocationServicesStatus() =
+        (getSystemService(LOCATION_SERVICE) as LocationManager).run {
+            isProviderEnabled(LocationManager.GPS_PROVIDER)
+                    || isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+        }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
@@ -76,7 +143,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
             val hasAllGranted = grantResults.all { it == PackageManager.PERMISSION_GRANTED }
 
             if (hasAllGranted) {
-//                startLocationUpdates()
+                startLocationUpdates()
             } else {
 
             }
