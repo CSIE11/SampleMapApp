@@ -62,12 +62,11 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private fun setCurrentLocation(location: Location, markerTitle: String, markerSnippet: String) {
         val currentLatLng = LatLng(location.latitude, location.longitude)
-        val markerOptions = MarkerOptions().apply {
-            position(currentLatLng)
-            title(markerTitle)
-            snippet(markerSnippet)
-            draggable(true)
-        }
+        val markerOptions = MarkerOptions()
+            .position(currentLatLng)
+            .title(markerTitle)
+            .snippet(markerSnippet)
+            .draggable(true)
         val cameraUpdate = CameraUpdateFactory.newLatLng(currentLatLng)
 
         currentLocation = location
